@@ -37,3 +37,9 @@ def test_containers_get_distinct_private_signing_keys(tmp_path: Path) -> None:
         assert stat.S_IMODE((directory / "ca.p12").stat().st_mode) == 0o600
     assert (first / "ca.key").read_bytes() != (second / "ca.key").read_bytes()
     assert (first / "ca.crt").read_bytes() != (second / "ca.crt").read_bytes()
+
+
+def test_restarted_container_replaces_old_browser_ca_trust() -> None:
+    entrypoint = (ROOT / "containers/docker-entrypoint.sh").read_text(encoding="utf-8")
+    assert "if [ ! -f /home/pentester/.pki/nssdb/cert9.db ]; then" in entrypoint
+    assert entrypoint.index("certutil -D") < entrypoint.index("certutil -A")

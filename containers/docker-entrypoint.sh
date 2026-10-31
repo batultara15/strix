@@ -120,7 +120,11 @@ echo "✅ System-wide proxy configuration complete"
 
 echo "Adding CA to browser trust store..."
 sudo -u pentester mkdir -p /home/pentester/.pki/nssdb
-sudo -u pentester certutil -N -d sql:/home/pentester/.pki/nssdb --empty-password
+if [ ! -f /home/pentester/.pki/nssdb/cert9.db ]; then
+  sudo -u pentester certutil -N -d sql:/home/pentester/.pki/nssdb --empty-password
+fi
+# A restarted container has a fresh CA: replace the old nickname before import.
+sudo -u pentester certutil -D -n "Testing Root CA" -d sql:/home/pentester/.pki/nssdb > /dev/null 2>&1 || true
 sudo -u pentester certutil -A -n "Testing Root CA" -t "C,," -i /app/certs/ca.crt -d sql:/home/pentester/.pki/nssdb
 echo "✅ CA added to browser trust store"
 

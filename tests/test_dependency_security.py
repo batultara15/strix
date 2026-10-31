@@ -19,6 +19,7 @@ MINIMUMS = {
     "filelock": "4.2.1",
     "pyasn1": "0.6.5",
     "pypdf": "6.21.4",
+    "pillow": "13.0.0",
 }
 
 

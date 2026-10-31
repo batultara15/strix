@@ -112,6 +112,14 @@ def resolve_run_dir(base_dir: Path, run_param: str | None, default_run_dir: Path
 # cookies by host only, never by port: concurrent viewers on 127.0.0.1 would
 # otherwise share one cookie slot and clobber each other's session.
 SESSION_COOKIE_PREFIX = "strix_viewer_session"
+_MAX_REQUEST_BODY_BYTES = 64 * 1024
+_REQUEST_TIMEOUT_SECONDS = 10
+
+
+class _RequestBodyError(ValueError):
+    def __init__(self, status: HTTPStatus) -> None:
+        super().__init__("Invalid request body framing")
+        self.status = status
 
 
 class _ViewerState:
@@ -147,6 +155,10 @@ class _ViewerState:
 def _make_handler(state: _ViewerState) -> type[BaseHTTPRequestHandler]:
     class ViewerHandler(BaseHTTPRequestHandler):
         server_version = "StrixViewer/1.0"
+
+        def setup(self) -> None:
+            super().setup()
+            self.connection.settimeout(_REQUEST_TIMEOUT_SECONDS)
 
         def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
             logger.debug("viewer %s - %s", self.address_string(), format % args)
@@ -187,6 +199,9 @@ def _make_handler(state: _ViewerState) -> type[BaseHTTPRequestHandler]:
                     self._handle_steer()
                 else:
                     self._send_json(HTTPStatus.NOT_FOUND, {"error": "unknown endpoint"})
+            except _RequestBodyError as exc:
+                self.close_connection = True
+                self._send_json(exc.status, {"error": "invalid request body"})
             except BrokenPipeError:
                 logger.debug("viewer client disconnected during POST %s", path)
             except Exception:
@@ -195,7 +210,15 @@ def _make_handler(state: _ViewerState) -> type[BaseHTTPRequestHandler]:
                 self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "internal error"})
 
         def _read_body(self) -> dict[str, Any]:
-            length = int(self.headers.get("Content-Length") or 0)
+            lengths = self.headers.get_all("Content-Length", [])
+            if len(lengths) > 1 or self.headers.get("Transfer-Encoding"):
+                raise _RequestBodyError(HTTPStatus.BAD_REQUEST)
+            value = lengths[0] if lengths else "0"
+            if not value.isascii() or not value.isdecimal():
+                raise _RequestBodyError(HTTPStatus.BAD_REQUEST)
+            if len(value) > 10 or int(value) > _MAX_REQUEST_BODY_BYTES:
+                raise _RequestBodyError(HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+            length = int(value)
             raw = self.rfile.read(length) if length else b""
             try:
                 body = json.loads(raw or b"{}")

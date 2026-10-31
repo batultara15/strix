@@ -41,3 +41,32 @@ def test_clones_use_private_unique_directories_and_end_git_options(
     assert first.parent.parent == tmp_path
     assert run.call_args.args[0][1:3] == ["clone", "--"]
     delete.assert_not_called()
+
+
+def test_fetched_collections_never_reuse_predictable_paths(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(utils.tempfile, "tempdir", str(tmp_path))
+    shared = tmp_path / "strix_api_specs" / "fetched"
+    shared.mkdir(parents=True)
+    victim = shared / "collection.postman_collection.json"
+    victim.write_text("leave this file untouched", encoding="utf-8")
+    first = Path(utils.write_fetched_collection({"fake": "one"}, "collection"))
+    second = Path(utils.write_fetched_collection({"fake": "two"}, "collection"))
+    assert first.parent != second.parent
+    assert first.parent.parent == tmp_path
+    assert victim.read_text(encoding="utf-8") == "leave this file untouched"
+
+
+def test_spec_staging_does_not_follow_run_name_paths(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(utils.tempfile, "tempdir", str(tmp_path))
+    source = tmp_path / "spec.json"
+    source.write_text("{}", encoding="utf-8")
+    target = {"type": "api_spec", "details": {"target_spec": str(source)}}
+    first = Path(utils.stage_api_specs([target], "../victim")[0]["source_path"])
+    second = Path(utils.stage_api_specs([target], "../victim")[0]["source_path"])
+    assert first != second
+    assert first.parent == tmp_path
+    assert (first / "spec.json").read_text(encoding="utf-8") == "{}"

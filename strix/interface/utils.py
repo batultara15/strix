@@ -1507,8 +1507,7 @@ def write_fetched_collection(collection: dict[str, Any], collection_uid: str) ->
     Returns the file path, so a ``postman://`` target continues as an ordinary
     spec file from here on and the API key never leaves the host.
     """
-    staging = Path(tempfile.gettempdir()) / "strix_api_specs" / "fetched"
-    staging.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix="strix-api-spec-fetched-"))
     path = staging / f"{sanitize_name(collection_uid)}.postman_collection.json"
     path.write_text(json.dumps(collection, indent=2), encoding="utf-8")
     return str(path)
@@ -1526,8 +1525,7 @@ def stage_api_specs(targets_info: list[dict[str, Any]], run_name: str) -> list[d
     if not specs:
         return []
 
-    staging = Path(tempfile.gettempdir()) / "strix_api_specs" / run_name
-    staging.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=f"strix-api-spec-{sanitize_name(run_name)[:40]}-"))
 
     used: set[str] = set()
     for target in specs:

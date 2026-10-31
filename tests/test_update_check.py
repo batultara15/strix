@@ -3,7 +3,9 @@ import io
 import json
 import platform
 import time
+import zipfile
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from rich.console import Console
@@ -223,3 +225,49 @@ def test_self_update_uses_linux_arm64_release(monkeypatch: pytest.MonkeyPatch) -
 
     assert update_check.self_update(Console(file=io.StringIO()), version="1.1.0") is True
     assert requested_update == [("1.1.0", "linux-arm64")]
+
+
+@pytest.mark.parametrize("digest", [None, "", "invalid", "a" * 63])
+def test_update_refuses_missing_or_invalid_digest_before_download(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, digest: str | None
+) -> None:
+    executable = tmp_path / "strix.exe"
+    executable.write_bytes(b"FAKE_OLD_EXECUTABLE")
+    monkeypatch.setattr(update_check.sys, "executable", str(executable))
+    monkeypatch.setattr(update_check, "_fetch_asset_digest", lambda *_: digest)
+    download = MagicMock(side_effect=AssertionError("must not download without integrity proof"))
+    monkeypatch.setattr(update_check.requests, "get", download)
+    with pytest.raises(RuntimeError, match="refusing to install"):
+        update_check._download_and_replace("1.7.1", "windows-x86_64", Console(file=io.StringIO()))
+    download.assert_not_called()
+    assert executable.read_bytes() == b"FAKE_OLD_EXECUTABLE"
+
+
+@pytest.mark.parametrize("valid", [False, True])
+def test_update_verifies_archive_before_replacing_executable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, valid: bool
+) -> None:
+    executable = tmp_path / "strix.exe"
+    executable.write_bytes(b"FAKE_OLD_EXECUTABLE")
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w") as output:
+        output.writestr("strix-1.7.1-windows-x86_64.exe", b"FAKE_NEW_EXECUTABLE")
+    payload = archive.getvalue()
+    digest = hashlib.sha256(payload).hexdigest() if valid else "0" * 64
+    response = MagicMock()
+    response.__enter__.return_value = response
+    response.iter_content.return_value = [payload]
+    monkeypatch.setattr(update_check.sys, "executable", str(executable))
+    monkeypatch.setattr(update_check, "_fetch_asset_digest", lambda *_: digest)
+    monkeypatch.setattr(update_check.requests, "get", lambda *_args, **_kwargs: response)
+    if valid:
+        assert update_check._download_and_replace(
+            "1.7.1", "windows-x86_64", Console(file=io.StringIO())
+        )
+        assert executable.read_bytes() == b"FAKE_NEW_EXECUTABLE"
+    else:
+        with pytest.raises(RuntimeError, match="checksum mismatch"):
+            update_check._download_and_replace(
+                "1.7.1", "windows-x86_64", Console(file=io.StringIO())
+            )
+        assert executable.read_bytes() == b"FAKE_OLD_EXECUTABLE"

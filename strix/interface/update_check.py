@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import platform
+import re
 import shutil
 import stat
 import subprocess
@@ -319,6 +320,11 @@ def _download_and_replace(version: str, target: str, console: Console) -> bool:
     url = f"https://github.com/{GITHUB_REPO}/releases/download/v{version}/{filename}"
     binary_name = f"strix-{version}-{target}" + (".exe" if is_windows else "")
     current_exe = Path(sys.executable).resolve()
+    expected_digest = _fetch_asset_digest(version, filename)
+    if not expected_digest or not re.fullmatch(r"[a-f0-9]{64}", expected_digest):
+        raise RuntimeError(
+            "Cannot verify update checksum; refusing to install an unverified executable"
+        )
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
@@ -334,16 +340,12 @@ def _download_and_replace(version: str, target: str, console: Console) -> bool:
                 for chunk in response.iter_content(chunk_size=1 << 20):
                     f.write(chunk)
 
-        expected_digest = _fetch_asset_digest(version, filename)
-        if expected_digest:
-            actual_digest = _sha256_file(archive_path)
-            if actual_digest != expected_digest:
-                raise RuntimeError(
-                    f"checksum mismatch for {filename}: "
-                    f"expected sha256 {expected_digest}, got {actual_digest}"
-                )
-        else:
-            console.print("[dim yellow]No published checksum available; skipping verification[/]")
+        actual_digest = _sha256_file(archive_path)
+        if actual_digest != expected_digest:
+            raise RuntimeError(
+                f"checksum mismatch for {filename}: "
+                f"expected sha256 {expected_digest}, got {actual_digest}"
+            )
 
         if is_windows:
             with zipfile.ZipFile(archive_path) as zf:

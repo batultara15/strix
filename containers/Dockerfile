@@ -63,28 +63,8 @@ RUN apt-get update && \
 
 RUN setcap cap_net_raw,cap_net_admin,cap_net_bind_service+eip $(which nmap)
 
-USER pentester
-RUN openssl ecparam -name prime256v1 -genkey -noout -out /app/certs/ca.key && \
-    openssl req -x509 -new -key /app/certs/ca.key \
-    -out /app/certs/ca.crt \
-    -days 3650 \
-    -subj "/C=US/ST=CA/O=Security Testing/CN=Testing Root CA" \
-    -addext "basicConstraints=critical,CA:TRUE" \
-    -addext "keyUsage=critical,digitalSignature,keyEncipherment,keyCertSign" && \
-    openssl pkcs12 -export \
-    -out /app/certs/ca.p12 \
-    -inkey /app/certs/ca.key \
-    -in /app/certs/ca.crt \
-    -passout pass:"" \
-    -name "Testing Root CA" && \
-    chmod 644 /app/certs/ca.crt && \
-    chmod 600 /app/certs/ca.key && \
-    chmod 600 /app/certs/ca.p12
-
+# Interception keys are generated per container at startup, never in image layers.
 USER root
-RUN cp /app/certs/ca.crt /usr/local/share/ca-certificates/ca.crt && \
-    update-ca-certificates
-
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
 USER pentester
@@ -280,7 +260,8 @@ RUN echo 'export PATH="/home/pentester/go/bin:/home/pentester/.local/bin:/home/p
 
 USER root
 COPY containers/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+COPY containers/generate-ca.sh /usr/local/bin/strix-generate-ca.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh /usr/local/bin/strix-generate-ca.sh
 
 USER pentester
 WORKDIR /workspace

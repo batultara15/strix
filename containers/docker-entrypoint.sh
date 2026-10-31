@@ -20,10 +20,11 @@ fi
 CAIDO_PORT=48080
 CAIDO_LOG="/tmp/caido_startup.log"
 
-if [ ! -f /app/certs/ca.p12 ]; then
-  echo "ERROR: CA certificate file /app/certs/ca.p12 not found."
-  exit 1
-fi
+# A published image must never contain a reusable interception signing key.
+# Regenerate before Caido starts, and trust only this container's public CA.
+/usr/local/bin/strix-generate-ca.sh /app/certs
+sudo install -m 0644 /app/certs/ca.crt /usr/local/share/ca-certificates/ca.crt
+sudo update-ca-certificates > /dev/null
 
 # Caido enforces a Host allowlist (DNS-rebinding protection) and rejects requests
 # whose Host header is a hostname it doesn't recognize. To reach Caido over a

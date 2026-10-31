@@ -1,6 +1,6 @@
 module github.com/usestrix/strix/tui
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/alecthomas/chroma/v2 v2.14.0
@@ -11,7 +11,7 @@ require (
 	github.com/charmbracelet/x/ansi v0.10.1
 	github.com/charmbracelet/x/term v0.2.1
 	github.com/muesli/termenv v0.16.0
-	golang.org/x/sys v0.36.0
+	golang.org/x/sys v0.44.0
 )
 
 require (

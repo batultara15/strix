@@ -78,7 +78,9 @@ asyncio_mode = "auto"
 # at least 5 days, so a poisoned release (litellm 1.107.0, 2026-10-21) is never
 # picked up by `uv lock` / `uv add` before it can be caught and yanked.
 exclude-newer = "5 days"
-constraint-dependencies = ["anyio>=4.14.2", "certifi>=2026.10.23", "urllib3>=2.8.0", "pyjwt>=2.15.0", "mcp>=1.30.0", "multidict>=6.9.1", "filelock>=4.2.1"]
+constraint-dependencies = ["anyio>=4.14.2", "certifi>=2026.10.23", "urllib3>=2.8.0", "pyjwt>=2.15.0", "mcp>=1.30.0", "multidict>=6.9.1", "filelock>=4.2.1", "pyasn1==0.6.5"]
+# Reviewed, exactly pinned security fixes; retain the global supply-chain cooldown.
+exclude-newer-package = { pyasn1 = "2026-10-31T23:59:59Z" }
 
 [build-system]
 requires = ["hatchling"]

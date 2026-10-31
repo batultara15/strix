@@ -17,6 +17,7 @@ MINIMUMS = {
     "mcp": "1.30.0",
     "multidict": "6.9.1",
     "filelock": "4.2.1",
+    "pyasn1": "0.6.5",
 }
 
 

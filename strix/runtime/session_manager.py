@@ -12,7 +12,7 @@ import sys
 import tarfile
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from agents.sandbox.entries import BaseEntry, LocalDir
 from agents.sandbox.manifest import Environment, Manifest
@@ -26,10 +26,15 @@ from strix.runtime.deferred_session import DeferredSandboxClient, DeferredSandbo
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable
+    from typing import Protocol
 
     from agents.sandbox.session import BaseSandboxSession
 
     from strix.runtime.status import StatusSink
+
+    class _PosixIdentityApi(Protocol):
+        def getuid(self) -> int: ...
+        def getgid(self) -> int: ...
 
 
 logger = logging.getLogger(__name__)
@@ -63,7 +68,12 @@ def _host_identity_env() -> dict[str, str]:
         return {}
     # Bind-mount ownership only needs mapping on Linux, where the container uid
     # must match the host's.
-    return {"STRIX_HOST_UID": str(os.getuid()), "STRIX_HOST_GID": str(os.getgid())}
+    # These optional OS functions are absent from Windows typeshed and runtime.
+    identity_api = cast("_PosixIdentityApi", os)
+    return {
+        "STRIX_HOST_UID": str(identity_api.getuid()),
+        "STRIX_HOST_GID": str(identity_api.getgid()),
+    }
 
 
 def build_bind_mounts(local_sources: list[dict[str, Any]]) -> list[dict[str, Any]]:

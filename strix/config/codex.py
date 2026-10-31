@@ -20,7 +20,7 @@ import threading
 import time
 import urllib.parse
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import requests
 
@@ -28,9 +28,16 @@ from strix.utils.secret_files import write_secret_text
 
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
+    from typing import Protocol
 
     from openai import AsyncOpenAI
+
+    class _PosixLockApi(Protocol):
+        LOCK_EX: int
+        LOCK_UN: int
+
+        def flock(self, fd: int, operation: int) -> None: ...
 
 
 logger = logging.getLogger(__name__)
@@ -65,7 +72,7 @@ def _read_store() -> dict[str, Any]:
         data = json.loads(AUTH_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
-    return data if isinstance(data, dict) else {}
+    return cast("dict[str, Any]", data) if isinstance(data, dict) else {}
 
 
 def _write_store(data: dict[str, Any]) -> None:
@@ -74,7 +81,10 @@ def _write_store(data: dict[str, Any]) -> None:
 
 def read_record() -> dict[str, Any] | None:
     record = _read_store().get(PROVIDER)
-    if not isinstance(record, dict) or record.get("type") != "oauth":
+    if not isinstance(record, dict):
+        return None
+    record = cast("dict[str, Any]", record)
+    if record.get("type") != "oauth":
         return None
     if not (record.get("access") and record.get("refresh") and record.get("account_id")):
         return None
@@ -104,12 +114,15 @@ def logout() -> None:
 
 
 @contextlib.contextmanager
-def _refresh_guard() -> Iterator[None]:
+def _refresh_guard() -> Generator[None]:
     """Serialize token refresh within (lock) and across (flock) Strix processes,
     so concurrent runs can't both spend the single-use refresh token."""
     with _refresh_lock:
         try:
             import fcntl
+
+            # Optional POSIX extension: typeshed omits these members on Windows.
+            lock_api = cast("_PosixLockApi", fcntl)
 
             lock_path = AUTH_PATH.with_suffix(".lock")
             lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -119,11 +132,11 @@ def _refresh_guard() -> Iterator[None]:
             return
         try:
             with contextlib.suppress(OSError):
-                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+                lock_api.flock(handle.fileno(), lock_api.LOCK_EX)
             yield
         finally:
             with contextlib.suppress(OSError):
-                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                lock_api.flock(handle.fileno(), lock_api.LOCK_UN)
             handle.close()
 
 
@@ -235,7 +248,7 @@ def _post_form(payload: dict[str, str]) -> dict[str, Any]:
     data = json.loads(body or b"{}")
     if not isinstance(data, dict):
         raise CodexAuthError("bad_response", "token endpoint returned non-object")
-    return data
+    return cast("dict[str, Any]", data)
 
 
 def _record_from_token_response(
@@ -302,16 +315,19 @@ def _account_id_from_jwt(token: str | None) -> str | None:
         return None
     if not isinstance(payload, dict):
         return None
+    payload = cast("dict[str, Any]", payload)
     auth = payload.get(_ACCOUNT_CLAIM)
     if isinstance(auth, dict):
-        account_id = auth.get("chatgpt_account_id")
+        account_id = cast("dict[str, Any]", auth).get("chatgpt_account_id")
         if isinstance(account_id, str) and account_id:
             return account_id
     organizations = payload.get("organizations")
-    if isinstance(organizations, list) and organizations and isinstance(organizations[0], dict):
-        org_id = organizations[0].get("id")
-        if isinstance(org_id, str) and org_id:
-            return org_id
+    if isinstance(organizations, list):
+        entries = cast("list[Any]", organizations)
+        if entries and isinstance(entries[0], dict):
+            org_id = cast("dict[str, Any]", entries[0]).get("id")
+            if isinstance(org_id, str) and org_id:
+                return org_id
     return None
 
 

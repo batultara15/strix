@@ -41,7 +41,7 @@ fi
 
 if ! command -v go &> /dev/null; then
     echo -e "${RED}Error: Go is not installed${NC}"
-    echo "Go 1.24 or newer is required to build the Bubble Tea TUI."
+    echo "Go 1.25 or newer is required to build the Bubble Tea TUI."
     exit 1
 fi
 

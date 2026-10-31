@@ -32,7 +32,7 @@ class CustomBuildHook(BuildHookInterface):  # type: ignore[type-arg]
 
         go = shutil.which("go")
         if go is None:
-            raise RuntimeError("Go 1.24 or newer is required to build the Bubble Tea TUI")
+            raise RuntimeError("Go 1.25 or newer is required to build the Bubble Tea TUI")
         env = os.environ.copy()
         env["CGO_ENABLED"] = "0"
         subprocess.run(  # noqa: S603 - fixed build command using the resolved Go binary

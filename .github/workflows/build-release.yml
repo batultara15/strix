@@ -52,6 +52,17 @@ jobs:
           check-latest: true
           cache: false
 
+      # cryptography no longer publishes Intel macOS wheels. Build the locked
+      # source with static OpenSSL so the binary has no Homebrew runtime dependency.
+      - name: Prepare Intel macOS crypto source build
+        if: matrix.target == 'macos-x86_64'
+        shell: bash
+        run: |
+          test "$(uname -m)" = x86_64
+          brew install openssl@3 rust
+          echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+          echo "OPENSSL_STATIC=1" >> "$GITHUB_ENV"
+
       - name: Build
         shell: bash
         env:
@@ -96,6 +107,14 @@ jobs:
             chmod +x "dist/release/strix-${VERSION}-${{ matrix.target }}"
             tar -C dist/release -czvf "dist/release/strix-${VERSION}-${{ matrix.target }}.tar.gz" "strix-${VERSION}-${{ matrix.target }}"
           fi
+
+      - name: Smoke test Intel macOS crypto and binary
+        if: matrix.target == 'macos-x86_64'
+        shell: bash
+        run: |
+          uv run --frozen pytest -q tests/test_crypto_compatibility.py
+          dist/strix --version
+          dist/strix --help > /dev/null
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:

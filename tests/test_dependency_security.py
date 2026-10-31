@@ -8,7 +8,7 @@ import pytest
 from packaging.version import Version
 
 
-MINIMUMS = {"litellm": "1.101.3"}
+MINIMUMS = {"litellm": "1.101.3", "anyio": "4.14.2"}
 
 
 @pytest.mark.parametrize(("name", "minimum"), MINIMUMS.items())

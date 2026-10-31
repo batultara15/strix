@@ -78,6 +78,7 @@ asyncio_mode = "auto"
 # at least 5 days, so a poisoned release (litellm 1.107.0, 2026-10-21) is never
 # picked up by `uv lock` / `uv add` before it can be caught and yanked.
 exclude-newer = "5 days"
+constraint-dependencies = ["anyio>=4.14.2"]
 
 [build-system]
 requires = ["hatchling"]

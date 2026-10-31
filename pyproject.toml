@@ -35,7 +35,7 @@ classifiers = [
 dependencies = [
   "openai-agents[litellm]>=0.19.0,<0.20",
   "openai>=2.45.0,<3",
-  "litellm>=1.101.0",
+  "litellm>=1.101.3",
   "google-auth>=2.0.0",
   "boto3>=1.28.0",
   "pydantic>=2.11.3",
@@ -279,7 +279,7 @@ ignore = [
     "TC003",  # uuid imported for annotation
 ]
 # SDK function-tool wrappers: the SDK calls get_type_hints() at registration
-# time to derive the JSON schema, which evaluates annotations at runtime —
+# time to derive the JSON schema, which evaluates annotations at runtime â€”
 # so RunContextWrapper / Tool / TResponseInputItem must be imported eagerly,
 # not under TYPE_CHECKING.
 "strix/tools/todo/tools.py" = ["TC002"]

@@ -161,7 +161,17 @@ def _make_handler(state: _ViewerState) -> type[BaseHTTPRequestHandler]:
             self.connection.settimeout(_REQUEST_TIMEOUT_SECONDS)
 
         def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
-            logger.debug("viewer %s - %s", self.address_string(), format % args)
+            message = (format % args).replace(self.path, urlsplit(self.path).path)
+            logger.debug("viewer %s - %s", self.address_string(), message)
+
+        def end_headers(self) -> None:
+            # Bootstrap URLs and authenticated run data must not leak through
+            # referrers or caches. The viewer can also bind to a non-loopback host.
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            super().end_headers()
 
         def do_GET(self) -> None:
             parts = urlsplit(self.path)

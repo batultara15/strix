@@ -67,3 +67,23 @@ def test_small_valid_request_still_works(viewer: ThreadingHTTPServer) -> None:
         response.read()
     finally:
         connection.close()
+
+
+def test_bootstrap_capability_never_reaches_access_logs(
+    viewer: ThreadingHTTPServer, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level("DEBUG", logger="strix.interface.viewer.server")
+    connection = http.client.HTTPConnection("127.0.0.1", viewer.server_port, timeout=2)
+    try:
+        connection.request("GET", "/?token=TEST_FAKE_VIEWER_CAPABILITY&email=FAKE_PRIVATE")
+        response = connection.getresponse()
+        response.read()
+        assert response.getheader("Cache-Control") == "no-store"
+        assert response.getheader("Referrer-Policy") == "no-referrer"
+        assert response.getheader("X-Content-Type-Options") == "nosniff"
+        assert response.getheader("X-Frame-Options") == "DENY"
+        assert "TEST_FAKE_VIEWER_CAPABILITY" not in caplog.text
+        assert "FAKE_PRIVATE" not in caplog.text
+        assert "GET / HTTP/1.1" in caplog.text
+    finally:
+        connection.close()

@@ -151,7 +151,11 @@ async def test_unknown_and_null_arguments_are_untouched() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("arguments", ["not json", '{"n": NaN}', OVER_NESTED])
+@pytest.mark.parametrize(
+    "arguments",
+    ["not json", '{"n": NaN}', OVER_NESTED],
+    ids=["invalid-json", "non-finite-number", "over-nested"],
+)
 async def test_non_object_payloads_are_reported_instead_of_invoked(arguments: str) -> None:
     captured: dict[str, str] = {}
     wrapped = factory._with_coerced_arguments(_capturing_tool(captured, _ARRAY))

@@ -1551,6 +1551,17 @@ def stage_api_specs(targets_info: list[dict[str, Any]], run_name: str) -> list[d
 
 
 def clone_repository(repo_url: str, run_name: str, dest_name: str | None = None) -> str:
+    parsed = urlparse(repo_url)
+    if (
+        (parsed.username is not None and parsed.scheme not in {"ssh", "git+ssh"})
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError(
+            "Repository URLs must not contain credentials, queries, or fragments; "
+            "use SSH or a Git credential helper"
+        )
     console = Console()
 
     git_executable = shutil.which("git")
@@ -1584,8 +1595,12 @@ def clone_repository(repo_url: str, run_name: str, dest_name: str | None = None)
         return str(clone_path.absolute())
 
     except subprocess.CalledProcessError as e:
-        detail = e.stderr if hasattr(e, "stderr") and e.stderr else str(e)
-        raise ValueError(f"Could not clone repository {repo_url}: {detail}") from e
+        # Remote diagnostics can echo URLs, authorization data or other secrets.
+        # Do not propagate provider-controlled stderr into console/report logs.
+        raise ValueError(
+            f"Could not clone repository (Git exit {e.returncode}); "
+            "check the URL and credential helper"
+        ) from None
     except FileNotFoundError as e:
         raise ValueError(
             "Git is not installed or not available in PATH. "

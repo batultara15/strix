@@ -70,3 +70,53 @@ def test_spec_staging_does_not_follow_run_name_paths(
     assert first != second
     assert first.parent == tmp_path
     assert (first / "spec.json").read_text(encoding="utf-8") == "{}"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://TEST_FAKE_TOKEN_DO_NOT_USE@example.test/repo.git",
+        "https://user:TEST_FAKE_PASSWORD@example.test/repo.git",
+        "https://example.test/repo.git?token=TEST_FAKE_TOKEN_DO_NOT_USE",
+        "https://example.test/repo.git#TEST_FAKE_TOKEN_DO_NOT_USE",
+    ],
+)
+def test_clone_rejects_inline_credentials_before_logging_or_subprocess(
+    url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    console = Mock()
+    run = Mock()
+    monkeypatch.setattr(utils, "Console", console)
+    monkeypatch.setattr(utils.subprocess, "run", run)
+    with pytest.raises(ValueError, match="credential helper") as error:
+        utils.clone_repository(url, "run")
+    assert "TEST_FAKE" not in str(error.value)
+    console.assert_not_called()
+    run.assert_not_called()
+
+
+def test_git_failure_does_not_disclose_remote_diagnostics(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(utils.shutil, "which", lambda _: "git")
+    monkeypatch.setattr(utils.tempfile, "tempdir", str(tmp_path))
+    failure = utils.subprocess.CalledProcessError(128, ["git"], stderr="TEST_FAKE_REMOTE_SECRET")
+    monkeypatch.setattr(utils.subprocess, "run", Mock(side_effect=failure))
+    with pytest.raises(ValueError, match="Git exit 128") as error:
+        utils.clone_repository("https://example.test/repo.git", "run")
+    assert "TEST_FAKE_REMOTE_SECRET" not in str(error.value)
+    assert error.value.__suppress_context__
+
+
+@pytest.mark.parametrize(
+    "url", ["git@example.test:org/repo.git", "ssh://git@example.test/repo.git"]
+)
+def test_clone_preserves_ssh_username_support(
+    url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(utils.shutil, "which", lambda _: "git")
+    monkeypatch.setattr(utils.tempfile, "tempdir", str(tmp_path))
+    run = Mock()
+    monkeypatch.setattr(utils.subprocess, "run", run)
+    utils.clone_repository(url, "run")
+    assert run.call_args.args[0][3] == url

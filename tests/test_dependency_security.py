@@ -16,6 +16,7 @@ MINIMUMS = {
     "pyjwt": "2.15.0",
     "mcp": "1.30.0",
     "multidict": "6.9.1",
+    "filelock": "4.2.1",
 }
 
 

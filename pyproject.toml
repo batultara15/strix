@@ -48,9 +48,9 @@ dependencies = [
   "markdown-it-py>=3.0.0",
   "reportlab>=4.0",
   "pypdf>=6.21.4",
-  # Cap <49: 49.x drops the universal2 macOS wheel (arm64-only), which breaks
-  # the Intel macOS (macos-x86_64) release build's `uv sync --frozen`.
-  "cryptography>=48.0.1,<49",
+  # Advisory fixes require 50.x. Intel macOS release CI must validate a source
+  # build because the previous universal2 wheel compatibility cap is removed.
+  "cryptography>=50.0.2,<51",
   "pyyaml>=6.0",
 ]
 
@@ -78,7 +78,7 @@ asyncio_mode = "auto"
 # at least 5 days, so a poisoned release (litellm 1.107.0, 2026-10-21) is never
 # picked up by `uv lock` / `uv add` before it can be caught and yanked.
 exclude-newer = "5 days"
-constraint-dependencies = ["anyio>=4.14.2", "certifi>=2026.10.23", "urllib3>=2.8.0", "pyjwt>=2.15.0", "mcp>=1.30.0", "multidict>=6.9.1", "filelock>=4.2.1", "pyasn1==0.6.5", "pypdf==6.21.4", "pillow>=13.0.0"]
+constraint-dependencies = ["anyio>=4.14.2", "certifi>=2026.10.23", "urllib3>=2.8.0", "pyjwt>=2.15.0", "mcp>=1.30.0", "multidict>=6.9.1", "filelock>=4.2.1", "pyasn1==0.6.5", "pypdf==6.21.4", "pillow>=13.0.0", "cryptography>=50.0.2"]
 # Reviewed, exactly pinned security fixes; retain the global supply-chain cooldown.
 exclude-newer-package = { pyasn1 = "2026-10-31T23:59:59Z", pypdf = "2026-10-31T23:59:59Z" }
 

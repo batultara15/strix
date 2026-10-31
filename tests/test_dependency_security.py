@@ -20,6 +20,7 @@ MINIMUMS = {
     "pyasn1": "0.6.5",
     "pypdf": "6.21.4",
     "pillow": "13.0.0",
+    "cryptography": "50.0.2",
 }
 
 

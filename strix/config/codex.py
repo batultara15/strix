@@ -322,12 +322,10 @@ def _account_id_from_jwt(token: str | None) -> str | None:
         if isinstance(account_id, str) and account_id:
             return account_id
     organizations = payload.get("organizations")
-    if isinstance(organizations, list):
-        entries = cast("list[Any]", organizations)
-        if entries and isinstance(entries[0], dict):
-            org_id = cast("dict[str, Any]", entries[0]).get("id")
-            if isinstance(org_id, str) and org_id:
-                return org_id
+    if isinstance(organizations, list) and organizations and isinstance(organizations[0], dict):
+        org_id = cast("dict[str, Any]", organizations[0]).get("id")
+        if isinstance(org_id, str) and org_id:
+            return org_id
     return None
 
 

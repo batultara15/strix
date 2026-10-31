@@ -1254,7 +1254,7 @@ def read_target_list_file(path_str: str) -> list[str]:
 
 def sanitize_name(name: str) -> str:
     sanitized = re.sub(r"[^A-Za-z0-9._-]", "-", name.strip())
-    return sanitized or "target"
+    return sanitized if sanitized and sanitized not in {".", ".."} else "target"
 
 
 def derive_repo_base_name(repo_url: str) -> str:
@@ -1559,18 +1559,14 @@ def clone_repository(repo_url: str, run_name: str, dest_name: str | None = None)
     if git_executable is None:
         raise FileNotFoundError("Git executable not found in PATH")
 
-    temp_dir = Path(tempfile.gettempdir()) / "strix_repos" / run_name
-    temp_dir.mkdir(parents=True, exist_ok=True)
+    repo_name = dest_name or derive_repo_base_name(repo_url)
+    if repo_name in {".", ".."} or not re.fullmatch(r"[A-Za-z0-9._-]+", repo_name):
+        raise ValueError("Repository destination must be a single safe directory name")
 
-    if dest_name:
-        repo_name = dest_name
-    else:
-        repo_name = Path(repo_url).stem if repo_url.endswith(".git") else Path(repo_url).name
-
+    # Never delete/reuse a predictable host path derived from a target. A private
+    # directory also prevents another local user from pre-placing a symlink.
+    temp_dir = Path(tempfile.mkdtemp(prefix=f"strix-repo-{sanitize_name(run_name)[:40]}-"))
     clone_path = temp_dir / repo_name
-
-    if clone_path.exists():
-        shutil.rmtree(clone_path)
 
     try:
         with console.status(f"[bold cyan]Cloning repository {repo_url}...", spinner="dots"):
@@ -1578,6 +1574,7 @@ def clone_repository(repo_url: str, run_name: str, dest_name: str | None = None)
                 [
                     git_executable,
                     "clone",
+                    "--",
                     repo_url,
                     str(clone_path),
                 ],

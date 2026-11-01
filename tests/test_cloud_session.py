@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import TYPE_CHECKING, Any
+from unittest.mock import Mock
 
 import pytest
 import requests
@@ -157,10 +159,15 @@ def test_session_json_errors_preserve_machine_readable_server_details(capsys: An
 def test_cli_device_identity_is_stable_and_privacy_safe(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    private_open = Mock(wraps=os.open)
+    monkeypatch.setattr(os, "open", private_open)
     path = tmp_path / "cli-identity.json"
     monkeypatch.setattr(platform_identity, "IDENTITY_PATH", path)
     first = platform_identity.read_or_create_identity()
     second = platform_identity.read_or_create_identity(device_name="  Build   laptop  ")
     assert second["client_instance_id"] == first["client_instance_id"]
     assert second["device_name"] == "Build laptop"
-    assert path.stat().st_mode & 0o777 == 0o600
+    assert private_open.call_count == 2
+    assert all(call.args[2] == 0o600 for call in private_open.call_args_list)
+    if os.name == "posix":
+        assert path.stat().st_mode & 0o777 == 0o600

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import stat
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
+from unittest.mock import Mock
 
 import pytest
 
@@ -86,10 +88,14 @@ def test_is_verified_accepts_epoch_expiry() -> None:
     assert auth.is_verified() is True
 
 
-def test_write_auth_is_0600() -> None:
+def test_write_auth_is_0600(monkeypatch: pytest.MonkeyPatch) -> None:
+    private_open = Mock(wraps=os.open)
+    monkeypatch.setattr(os, "open", private_open)
     auth.write_auth(email="a@b.com", token="t", verified_at="")  # nosec B106
-    mode = stat.S_IMODE(auth.AUTH_PATH.stat().st_mode)
-    assert mode == 0o600
+    assert private_open.call_count == 1
+    assert private_open.call_args.args[2] == 0o600
+    if os.name == "posix":
+        assert stat.S_IMODE(auth.AUTH_PATH.stat().st_mode) == 0o600
 
 
 def test_read_auth_rejects_incomplete_record() -> None:

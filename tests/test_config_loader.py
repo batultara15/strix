@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import TYPE_CHECKING
+from unittest.mock import Mock
 
 import pytest
 from pydantic import AliasChoices, Field, ValidationError
@@ -464,10 +466,15 @@ def test_saved_string_setting_is_not_json_decoded(tmp_path: Path) -> None:
 
 
 def test_persist_current_sets_0600_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    private_open = Mock(wraps=os.open)
+    monkeypatch.setattr(os, "open", private_open)
     monkeypatch.setenv("STRIX_LLM", "persisted-model")
     target = tmp_path / "cli-config.json"
     loader.apply_config_override(target)
 
     loader.persist_current()
 
-    assert target.stat().st_mode & 0o777 == 0o600
+    assert private_open.call_count == 1
+    assert all(call.args[2] == 0o600 for call in private_open.call_args_list)
+    if os.name == "posix":
+        assert target.stat().st_mode & 0o777 == 0o600

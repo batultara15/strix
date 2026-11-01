@@ -4,10 +4,25 @@ Audit date: 2026-10-31. Repository: https://github.com/usestrix/strix.git.
 Upstream baseline: `6b7ae2ebe4d47037a927aade23265ff4e4f27e84`. Local branch: `security-hardening`.
 
 **Release decision: code hardening completed, but NOT an unconditional launch clearance.**
-Confirmed code findings below are fixed. Dependency re-audits are clear. Full-suite and type-check
-failures already present upstream, Docker validation, and the compatibility checks listed below
-remain release gates. No push, PR, deployment, paid scan, or live-target pentest was performed.
+Confirmed code findings below are fixed. Dependency re-audits are clear. The latest local full-suite
+confirmation passes, as recorded below. Previously documented type-check debt, Docker validation,
+and compatibility/retirement requirements remain unchanged. No push, PR, deployment, paid scan, or live-target pentest was performed.
 Only this isolated checkout was changed; no LULU production service or data was accessed.
+
+## Full-suite confirmation — 2026-11-01
+
+One full Python test-suite run after the latest fixes completed successfully:
+**2,543 passed, 15 skipped, 3 xfailed, zero failures/errors**, with 122 warnings, in 621.97 seconds.
+JUnit records 2,561 total test cases, including 18 skipped/expected-failure cases.
+The three failures from the previous run are resolved. No implementation change or second run
+was required during this confirmation task. Private evidence: `confirmation-suite.log` and
+`confirmation-suite.xml` in `../strix-audit-evidence/`.
+
+Local test validation: **PASS**. This supersedes earlier statements that final full-suite
+confirmation was pending; the historical results below remain preserved. Skips and xfails are
+not claimed as executed passing coverage. Existing external gates and the retained Pyright
+baseline were not changed, retried, or reclassified. No push, deployment, production/D1/R2 write,
+or LULU/Sync v3 modification occurred. This confirmation updates only this report.
 
 ## Local launch follow-up — 2026-11-01
 

@@ -19,6 +19,9 @@ RUN mkdir -p /out/bin && \
     go install -v github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest && \
     go install -v golang.org/x/vuln/cmd/govulncheck@latest
 
+COPY containers/build-secure-tools.sh /tmp/build-secure-tools.sh
+RUN sh /tmp/build-secure-tools.sh
+
 # ---------------------------------------------------------------------------
 # Runtime stage
 # ---------------------------------------------------------------------------
@@ -75,9 +78,13 @@ COPY --from=gobuilder --chown=pentester:pentester /out/bin/ /home/pentester/go/b
 
 RUN nuclei -update-templates
 
+COPY --chown=pentester:pentester containers/install_dirsearch.py /tmp/install_dirsearch.py
 RUN pipx install arjun && \
-    pipx install dirsearch && \
+    python3 /tmp/install_dirsearch.py /tmp/dirsearch-build && \
+    pipx install /tmp/dirsearch-build/dirsearch-0.5.0 && \
+    rm -rf /tmp/dirsearch-build && \
     pipx inject dirsearch 'setuptools<81' && \
+    pipx runpip dirsearch check && \
     pipx install wafw00f
 
 ENV NPM_CONFIG_PREFIX=/home/pentester/.npm-global
@@ -159,20 +166,7 @@ USER root
 ARG TRUFFLEHOG_VERSION=3.99.2
 RUN curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /home/pentester/.local/bin "v${TRUFFLEHOG_VERSION}" && \
     chown -R pentester:pentester /home/pentester/.local
-RUN set -eux; \
-    ARCH="$(uname -m)"; \
-    case "$ARCH" in \
-        x86_64) GITLEAKS_ARCH="x64" ;; \
-        aarch64|arm64) GITLEAKS_ARCH="arm64" ;; \
-        *) echo "Unsupported architecture: $ARCH" >&2; exit 1 ;; \
-    esac; \
-    TAG="$(curl -fsSL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | jq -r .tag_name)"; \
-    curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/${TAG}/gitleaks_${TAG#v}_linux_${GITLEAKS_ARCH}.tar.gz" -o /tmp/gitleaks.tgz; \
-    tar -xzf /tmp/gitleaks.tgz -C /tmp; \
-    install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks; \
-    rm -f /tmp/gitleaks /tmp/gitleaks.tgz
-
-RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+# Gitleaks and Trivy come from gobuilder with patched dependencies and Go.
 
 RUN apt-get install -y wapiti
 
@@ -197,9 +191,13 @@ USER pentester
 RUN pipx install semgrep && \
     pipx install bandit
 
-RUN npm install -g jshint
-
 USER root
+COPY containers/jshint/package.json containers/jshint/package-lock.json /opt/strix-jshint/
+RUN npm ci --omit=dev --prefix /opt/strix-jshint --no-audit --no-fund && \
+    ln -s /opt/strix-jshint/node_modules/.bin/jshint /home/pentester/.npm-global/bin/jshint
+
+# Download caches are not required by installed tools.
+RUN rm -rf /home/pentester/.cache/uv /home/pentester/.cache/pip
 
 RUN apt-get autoremove -y && \
     apt-get autoclean && \

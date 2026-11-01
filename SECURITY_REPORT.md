@@ -4,10 +4,197 @@ Audit date: 2026-10-31. Repository: https://github.com/usestrix/strix.git.
 Upstream baseline: `6b7ae2ebe4d47037a927aade23265ff4e4f27e84`. Local branch: `security-hardening`.
 
 **Release decision: code hardening completed, but NOT an unconditional launch clearance.**
-Confirmed code findings below are fixed. Dependency re-audits are clear. The latest local full-suite
-confirmation passes, as recorded below. Previously documented type-check debt, Docker validation,
-and compatibility/retirement requirements remain unchanged. No push, PR, deployment, paid scan, or live-target pentest was performed.
+Confirmed application-code findings below are fixed; local dependency re-audits and the latest
+full-suite confirmation pass. The hardened Docker image has zero CRITICAL and zero actionable HIGH findings; two
+source-only HIGH matches remain visible and are documented below. Type-check debt and Intel
+compatibility/shared-CA retirement requirements remain. No push, PR, deployment, paid scan, or live-target pentest was performed.
 Only this isolated checkout was changed; no LULU production service or data was accessed.
+
+## Docker image dependency remediation — 2026-11-01
+
+**Actionable image dependency gate: PASS. Raw Trivy: exit 1, with two retained source-only HIGH matches.**
+Base revision remains `0c80e04d9bf7495c6f364ff152c8437d127d1544` on the isolated
+`security-hardening` branch, with the Docker-only patch described here. No main LULU working
+tree, application behavior, Sync v3, production credential, Cloudflare service, D1 or R2 was
+accessed or modified. Nothing was pushed or deployed. Existing full local suite/audits were
+not repeated. CCE was attempted first but its transport was closed; only the known Dockerfile,
+reported package sources, image evidence and directly relevant tests were read.
+
+The requested `docker-vulns.json` filename was absent. The actual verified before artifact is
+`.venv/docker-validation-evidence/image-vulnerabilities.json`, SHA-256
+`6a65b6f519b6a7d6e59557f02f1f1d4e685750a006a313877896c839ad1b0abf`.
+Every one of its 118 findings was classified in ignored `hardening/classification-before.json`.
+Counts are finding instances (not distinct CVEs):
+
+| Root source | CRITICAL before / after | HIGH before / after | Disposition |
+|---|---:|---:|---|
+| Base image / OS packages | 0 / 0 reported | 0 / 0 reported | No base-image change warranted by this report; Kali coverage limitation below remains. |
+| Go / bundled binary / runtime | 3 / 0 | 101 / 0 | Rebuilt affected tools with patched module versions and Go 1.27.3. |
+| Python packages | 0 / 0 | 6 / 0 | Three installed Dirsearch cryptography matches fixed; three duplicate cache matches removed with unused cache. |
+| Node packages | 0 / 0 | 4 / 0 | JSHint lodash/minimatch dependencies patched and locked. |
+| Optional Rust source metadata | 0 / 0 | 4 / 2 | Two cache duplicates removed; two installed source-lock matches retained and proven non-runtime. |
+| **Total raw matches** | **3 / 0** | **115 / 2** | **After: 0 actionable HIGH, 0 CRITICAL. No advisory ignored.** |
+
+### Narrow fixes
+
+- `containers/build-secure-tools.sh` rebuilds the same affected upstream tool releases with
+  fixed dependencies: Gospider 1.1.6, httpx 1.12.0, interactsh 1.4.1, Katana 1.8.0, vulnx 1.0.0,
+  Gitleaks 8.30.1 and Trivy 0.76.1. Gitleaks's old prebuilt Go 1.24.11 runtime is replaced.
+  Key patched modules are `pgx/v5 5.9.0`, `compress 1.18.7`, `x/net 0.60.0`,
+  `x/crypto 0.57.0`, `x/text 0.42.0`, `xmlquery 1.3.1`, `xpath 1.3.6`,
+  `logrus 1.9.3`, and `go-jose/v4 4.1.6`. The crypto/text choices satisfy x/net's
+  official module requirements. Existing compiler/module cache was reused for the build;
+  only resulting binaries cross the existing multi-stage boundary. Builder caches are cleaned.
+- `containers/install_dirsearch.py` verifies the exact official Dirsearch 0.5.0 source archive
+  SHA-256 before safe extraction, then changes only its TLS requirements: pyOpenSSL 26.1.0
+  to **26.4.0**, plus explicit **cryptography 50.0.2**. Upstream pyOpenSSL 26.1.0 requires
+  cryptography below 48; simply upgrading cryptography fails dependency consistency.
+  That draft was rejected by the retained `pip check`. The final source-built package passes
+  `pip check`; scanner code and native source are unchanged. The download is a fixed public
+  PyPI archive and extraction uses the safe `data` filter. An unexpected digest or source
+  requirement fails closed. This local package requires rebuilding the image for updates;
+  its temporary build source is removed, rather than promising `pipx upgrade` from that path.
+- `containers/jshint/package.json` and its integrity-pinned lock retain JSHint **2.13.6**
+  with compatible overrides **lodash 4.18.1** and **minimatch 3.1.5**. Installation uses
+  `npm ci`; tests prove successful linting, syntax-error rejection and glob matching.
+- `containers/Dockerfile` wires these package builds, drops old prebuilt Gitleaks/Trivy
+  installers and removes unused uv/pip download caches. Installed tool functionality and
+  entrypoint/CA code are retained. `containers/.gitattributes` enforces LF for shell scripts;
+  `containers/__init__.py` makes the source-preparation helper importable by its tests.
+
+### Remaining two HIGH matches: explicit applicability proof
+
+Both are in
+`home/pentester/.local/share/pipx/venvs/dirsearch/lib/python3.14/site-packages/dirsearch/native/Cargo.lock`:
+
+| Advisory | Source dependency | Scanner fixed version | Current applicability |
+|---|---|---|---|
+| GHSA-36hh-v3qg-5ccf | pyo3 0.24.1 | 0.29.0 | Source only; no installed native extension. |
+| GHSA-4w2j-m93h-cj5j | quinn-proto 0.11.14 | 0.11.15 | Source only; no installed native extension. |
+
+The actual image regression proves `dirsearch_native` cannot be imported, no `.so` exists
+anywhere in the installed Dirsearch package, its Python scanner help runs, and the updated
+crypto/TLS runtime works. The normal source install does not compile Rust, consistent with
+[upstream installation documentation](https://github.com/maurosoria/dirsearch/blob/master/docs/installation.md).
+These are real advisories against optional source dependencies, not claims that the advisories
+are false. Source files and findings remain present. Building/enabling that optional native
+backend later requires fixing its source dependencies and validating that separate native build;
+this release does not certify it. No `.trivyignore`, severity relaxation, vulnerability exclusion,
+or new scan-directory exclusion was added. The raw scanner still exits **1** as required by
+its unchanged threshold; the current Python-only runtime has **zero actionable HIGH** matches.
+
+### Verification and immutable evidence
+
+Final Docker build **exit 0** on Linux amd64, including the dependency-consistency, Brotli
+and browser checks. New opt-in image tests in `tests/test_container_tool_security.py` verify
+all seven compiled binaries' patched dependency metadata and offline CLI startup, JSHint
+behavior, Dirsearch crypto/pyOpenSSL context creation and absence of native Rust binaries.
+**All 13 unique new cases passed:** four source-patch unit cases and nine image cases.
+An initial vulnx smoke test incorrectly used `-version`; its supported offline `--help`
+probe passed after correcting only the test. The additional shared-library absence assertion
+also passed. Targeted Ruff checks/formatting pass; no full local suite rerun was performed.
+
+Unchanged real-container CA checks **PASS**: non-root execution, no generated key/P12 in
+image, private file modes 0600, OS CA verification, matching NSS trust, distinct public CA
+fingerprints in two containers, Caido HTTP 200, fresh CA and replaced trust after restart.
+All checks used network-disabled containers without published ports, host mounts or Docker
+socket mounts. Only public CA fingerprints were read; private keys/P12 were not exported.
+All disposable image-test/CA/scan/SBOM containers were removed.
+
+Final local tag: `strix-ca-check:hardened` (not published).
+
+- Image index / Docker image ID: `sha256:473dd656256e1a8cbd560d3b9b27860db0f2260aa5146ce326cd7190e239677f`.
+- Linux image manifest: `sha256:cb4d5d33dbc32341e9fb2e3f368121ab8918466b4e11c030a9f67bcd018f5abf`.
+- Image config: `sha256:68a224e983b58701d9a6c001569575b31aebd51ab2350978255dd0f19b556cbb`.
+- After scan JSON SHA-256: `631f0a92d1387986543c511cfd2ae3dc908eb15bcdd372846e2dde28bd4956fb`.
+
+The same Trivy rootfs command/scope and HIGH/CRITICAL exit threshold were used before/after.
+The final scanner is built from Trivy 0.76.1 source with patched go-jose; its CLI build-version
+string is `dev`, not an official unmodified release executable. The scan inventory records
+3,546 package entries; offline CycloneDX conversion produced 3,566 components. Kali is
+identified as Debian `kali-rolling`, with a scanner OS-version/EOL mapping warning: zero
+reported OS matches is not a blanket OS vulnerability clearance. This remains a merged-image
+filesystem dependency scan, not an image-layer secret or image-configuration audit.
+
+Ignored evidence is `.venv/docker-validation-evidence/hardening/`: `build-final.log`,
+`source-hashes.json`, `classification-before.json`, `classification-after.json`,
+`runtime-results.json`, `image-vulnerabilities.json`, `scan-summary.json`, `image-scan.log`,
+`image-sbom.cdx.json`, `image-tests.log`, `vulnx-test.log`, and `dirsearch-test.log`.
+The image's eight minimal build-context file hashes were rechecked after validation.
+
+**External gates unchanged:** an actual Intel x86_64 macOS build/crypto/packaged-CLI runner
+result is still missing. Shared-CA retirement still needs complete owned fleet/registry/trust
+scope, old/replacement immutable image digests, public CA fingerprints and timestamped
+retirement/no-old-trust evidence. No retirement or external validation is fabricated here.
+This section supersedes the earlier image-dependency failure counts only; prior evidence is retained.
+
+## Docker Desktop external validation — 2026-11-01
+
+**Build/startup/CA checks: PASS. Image vulnerability gate: FAIL; launch remains blocked.**
+Validated isolated branch `security-hardening` at exact source revision
+`0c80e04d9bf7495c6f364ff152c8437d127d1544`; initially clean. Docker Desktop's Linux
+engine is `29.9.2`, `amd64`, with four CPUs and approximately 4 GB RAM. Its per-user CLI
+was not on PATH; using its installed binary/helper directory resolved the initial CLI error.
+No implementation changes or previously passed local test reruns were performed.
+
+Build used `containers/Dockerfile`, both referenced shell scripts, and
+`strix/tools/proxy/caido_api.py` only, in a minimal context. Each copied file's SHA-256
+matched the isolated source. No main LULU files, environment files, credentials, or private
+keys entered the context. Build command: `docker build --platform linux/amd64 --progress plain
+-f <minimal-context>/containers/Dockerfile -t strix-ca-check:0c80e04d <minimal-context>`;
+exit **0**, including the Dockerfile's Brotli and browser-doctor checks. The image is local;
+no registry push or deployment occurred. Immutable identities from build output:
+
+- Image index / Docker image ID: `sha256:86be2f34d4a1b57c1f4a8973e99041b30e4a775ba2a230f265620426dc8b2008`.
+- Linux image manifest: `sha256:0bae0c1c5376f4c45deea3fd705164d76cb6d4269bc98490b6de8cf65a55448b`.
+- Image config: `sha256:385699de3aad495e7432c3fcd82e21e58f0bb63c3f04fa9958f505d097cf9cf8`.
+
+The finished image contains neither `/app/certs/ca.key` nor `/app/certs/ca.p12`.
+Two disposable containers ran the unmodified entrypoint with `--network none`, no host
+mounts or published ports. Both reached readiness and Caido HTTP **200**, ran non-root,
+and had private key/P12 modes **0600**. Each public CA verified against the OS bundle and
+matched its NSS `Testing Root CA` entry; the two containers' fingerprints differed.
+Restart generated a third, different fingerprint and updated both OS and NSS trust correctly.
+Only public fingerprints and file modes were inspected; no private key/P12 material was
+printed or exported. An early probe timed out during image unpacking, before startup;
+the complete post-unpack runtime run passed. All disposable audit containers were removed.
+
+Image scan used bundled **Trivy 0.76.1** in a disposable container, overriding the entrypoint:
+`trivy rootfs --scanners vuln --skip-dirs /proc,/sys,/dev,/tmp --list-all-pkgs
+--severity HIGH,CRITICAL --exit-code 1 --format json /`.
+This scans the built image's merged filesystem, without a Docker socket or host mount;
+it is not an image-layer secret/history or configuration scan. Scan exit **1**:
+**118 finding instances: 115 HIGH and 3 CRITICAL, across 70 unique vulnerability IDs**.
+Instances include repeated installed/cache/source-lock locations; exploitability and duplicate
+triage remain outstanding. CRITICAL package matches:
+
+| Image binary | Advisory | Installed dependency | Scanner fixed version |
+|---|---|---|---|
+| `home/pentester/go/bin/katana` | CVE-2026-33815 | `github.com/jackc/pgx/v5 v5.7.2` | 5.9.0 |
+| `home/pentester/go/bin/katana` | CVE-2026-33816 | `github.com/jackc/pgx/v5 v5.7.2` | 5.9.0 |
+| `usr/local/bin/gitleaks` | CVE-2025-68121 | Go stdlib v1.24.11 | 1.24.13 / 1.25.7 / 1.26.0-rc.3 |
+
+Other matches include bundled cryptography 47.0.0, lodash, minimatch and upstream Go/Rust
+binaries. These image-tool dependencies are separate from the already passing host-project
+lockfile audits. Do not distribute this image until findings are remediated or explicitly
+reviewed/dispositioned. Trivy identified Debian `kali-rolling` and warned that this OS version
+is not on its EOL list; zero reported OS matches does not establish complete Kali coverage.
+The JSON contains 3,840 package entries; offline conversion produced a CycloneDX SBOM with
+3,861 components (different counting includes dependency components).
+
+Private local evidence is retained only under ignored `.venv/docker-validation-evidence/`:
+`build.log`, `runtime-results.json`, `image-vulnerabilities.json`, `image-scan.log`,
+`scan-summary.json`, and `image-sbom.cdx.json`, plus minimal context/probe scripts.
+Vulnerability JSON SHA-256:
+`6a65b6f519b6a7d6e59557f02f1f1d4e685750a006a313877896c839ad1b0abf`.
+This section supersedes historical statements that Docker was unavailable; it does not
+supersede Intel or retirement gates. Intel validation still requires an actual **x86_64
+macOS runner** building this revision and passing native crypto/packaged-CLI smoke checks.
+Shared-CA retirement still requires the complete owned deployment/registry/trust-store
+scope, old and replacement immutable image digests, public CA fingerprints, and timestamped
+proof that no old image/container or old trusted CA remains in that scope. None was supplied.
+No main LULU working-tree change, Cloudflare access, production credential access, D1/R2
+operation, live-service operation, push or deployment occurred. Only this report is changed.
 
 ## Full-suite confirmation — 2026-11-01
 

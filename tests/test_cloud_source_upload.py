@@ -64,7 +64,12 @@ def test_source_defaults_are_private_and_git_aware(tmp_path: Path) -> None:
     (source / "fixture.zip").write_bytes(b"not really a zip")
     (source / "node_modules").mkdir()
     (source / "node_modules" / "dep.js").write_text("dep\n", encoding="utf-8")
-    (source / "linked.py").symlink_to(source / "app.py")
+    try:
+        (source / "linked.py").symlink_to(source / "app.py")
+    except OSError as exc:
+        if getattr(exc, "winerror", None) == 1314:
+            pytest.skip("This Windows host lacks symlink privilege; requires a capable runner")
+        raise
 
     bundle = source_upload.prepare_source(
         str(source),

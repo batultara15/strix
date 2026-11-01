@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from strix.interface.completions import completion_candidates, run_completions
@@ -132,8 +134,10 @@ def test_filesystem_completion_omits_terminal_control_names(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "safe.json").write_text("{}", encoding="utf-8")
-    (tmp_path / "unsafe\nname.json").write_text("{}", encoding="utf-8")
-    (tmp_path / "unsafe\x1b]52;c;payload\x07.json").write_text("{}", encoding="utf-8")
+    names = ["safe.json", "unsafe\nname.json", "unsafe\x1b]52;c;payload\x07.json"]
+    # Exercise unsafe directory entries without creating invalid Windows filenames.
+    entries = [SimpleNamespace(name=name, is_dir=lambda: False) for name in names]
+    monkeypatch.setattr(Path, "iterdir", lambda _path: iter(entries))
 
     words = ["cloud", "scans", "start", "--data", "@"]
     assert completion_candidates(words) == ["@safe.json"]

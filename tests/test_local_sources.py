@@ -197,7 +197,7 @@ def test_check_mountable_dir_accepts_a_project_under_the_home_root(
 
 def test_infer_target_type_applies_the_mount_policy() -> None:
     with pytest.raises(ValueError, match="Refusing to mount"):
-        infer_target_type("/etc")
+        infer_target_type(Path.cwd().anchor)
 
 
 def test_read_target_list_file_strips_blank_lines(tmp_path: Path) -> None:

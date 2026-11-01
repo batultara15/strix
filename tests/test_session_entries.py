@@ -113,7 +113,12 @@ def test_metadata_symlinked_outside_the_tree_is_not_mounted(tmp_path: Path) -> N
     outside.mkdir()
     tree = tmp_path / "repo"
     tree.mkdir()
-    (tree / ".git").symlink_to(outside, target_is_directory=True)
+    try:
+        (tree / ".git").symlink_to(outside, target_is_directory=True)
+    except OSError as exc:
+        if getattr(exc, "winerror", None) == 1314:
+            pytest.skip("This Windows host lacks symlink privilege; requires a capable runner")
+        raise
 
     mounts = build_bind_mounts([_source("repo", str(tree), protect_metadata=True)])
 

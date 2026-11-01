@@ -305,6 +305,7 @@ def select_source(
         if not include_archives and _has_archive_magic(path):
             excluded["nested_archive"] += 1
             continue
+        info = _selection_info(path, info, archive_name)
         if info.st_size > MAX_FILE_BYTES:
             raise http.CloudError(
                 f"{archive_name} is larger than the 25 MB per-file limit; exclude it explicitly."
@@ -583,6 +584,31 @@ def _matches_user_pattern(relative: Path, pattern: str) -> bool:
             )
         )
     return posix.match(pattern) or fnmatch.fnmatch(relative_posix, pattern)
+
+
+def _selection_info(path: Path, expected: os.stat_result, name: str) -> os.stat_result:
+    """Use the same descriptor metadata API for selection and archive race checks."""
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    try:
+        descriptor = os.open(path, flags)
+        try:
+            current = os.fstat(descriptor)
+        finally:
+            os.close(descriptor)
+    except OSError as exc:
+        raise http.CloudError(f"could not safely read {name}: {exc}") from exc
+    if (
+        not stat.S_ISREG(current.st_mode)
+        or current.st_dev != expected.st_dev
+        or current.st_ino != expected.st_ino
+        or current.st_size != expected.st_size
+        or current.st_mtime_ns != expected.st_mtime_ns
+        # Windows lstat can report creation time where fstat reports change time.
+        # Store descriptor change time below; never remove the archive's ctime guard.
+        or (os.name != "nt" and current.st_ctime_ns != expected.st_ctime_ns)
+    ):
+        raise http.CloudError(f"{name} changed while the source archive was being built; retry.")
+    return current
 
 
 def _write_archive(destination: Path, files: tuple[SelectedFile, ...]) -> None:

@@ -696,3 +696,18 @@ def test_oversize_archive_names_largest_files_and_exclude_guidance(
     assert "--exclude" in raised.value.next_step
     assert "--dry-run --show-files" in raised.value.next_step
     assert not list(tmp_path.glob("strix-source-*.zip"))
+
+
+def test_manifest_and_archive_use_descriptor_change_time(tmp_path: Path) -> None:
+    source = tmp_path / "app.py"
+    source.write_text("print('snapshot')\n", encoding="utf-8")
+    info = source.stat()
+    os.utime(source, ns=(info.st_atime_ns, info.st_mtime_ns + 10_000_000))
+    manifest = source_upload.select_source(tmp_path)
+    with source.open("rb") as stream:
+        expected = os.fstat(stream.fileno())
+    assert manifest.files[0].ctime_ns == expected.st_ctime_ns
+    archive = tmp_path / "snapshot.zip"
+    source_upload._write_archive(archive, manifest.files)
+    with zipfile.ZipFile(archive) as bundle:
+        assert bundle.read("app.py") == source.read_bytes()

@@ -10,6 +10,26 @@ source-only HIGH matches remain visible and are documented below. Type-check deb
 compatibility/shared-CA retirement requirements remain. No push, PR, deployment, paid scan, or live-target pentest was performed.
 Only this isolated checkout was changed; no LULU production service or data was accessed.
 
+## Final status — COMPLETE LOCALLY — 2026-11-01
+
+Local security work on `security-hardening` is **COMPLETE LOCALLY**. Verified implementation
+commit: `6d7e640ddd12339b6b45a6350c7b479f4cb4ad00`. Docker build and CA/restart checks pass;
+all 13 new regression cases pass. The image has **0 CRITICAL and 0 actionable HIGH** findings;
+two source-only HIGH findings remain visible with applicability evidence below.
+
+**Push: BLOCKED BY REPOSITORY PERMISSION.** The review-only branch push to
+`usestrix/strix:security-hardening` returned GitHub HTTP 403 for the authenticated account.
+No branch was pushed successfully. No retry was made during closure.
+
+**Deployment: BLOCKED ONLY BY EXTERNAL VALIDATION**: Intel x86_64 macOS runner evidence
+and complete shared-CA deployment/registry/trust inventory plus retirement evidence remain
+outstanding. No merge or deployment occurred. No production, D1/R2, Sync v3 or main LULU
+working-tree change occurred. Earlier audit results and retained baseline backlog remain
+documented; they are not being rerun or re-audited during this report-only closure.
+
+Next action: the repository owner grants write access or approves a fork. This task is closed
+locally; this closure changes only this report and does not change application code.
+
 ## Docker image dependency remediation — 2026-11-01
 
 **Actionable image dependency gate: PASS. Raw Trivy: exit 1, with two retained source-only HIGH matches.**

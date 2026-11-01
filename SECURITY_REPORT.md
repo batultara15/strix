@@ -9,6 +9,41 @@ failures already present upstream, Docker validation, and the compatibility chec
 remain release gates. No push, PR, deployment, paid scan, or live-target pentest was performed.
 Only this isolated checkout was changed; no LULU production service or data was accessed.
 
+## Launch-blocker follow-up (2026-10-31 to 2026-11-01)
+
+This follow-up changes only this isolated Strix checkout. It does not repeat the audit,
+push/deploy, access production, or change LULU/Sync v3/D1/R2. Launch clearance is still withheld.
+
+| Blocker | Follow-up result |
+|---|---|
+| Baseline tests | Required `skills=[]` restored in the budget test fixture; adversarial pytest IDs are named without shortening their payloads. 147 targeted tests pass across baseline/platform/auth (100), native crypto (2), pricing (44), and the formerly stalled provider case (1). The single full-suite attempt reached 75% with additional failures/errors, then spent hours in interactive provider authentication from cost estimation. It was stopped; no second full run was started. Full-suite launch clearance remains unresolved. |
+| Mypy | All six platform-related errors fixed with explicit optional POSIX Protocol contracts, retaining existing lock/fallback and Linux-only UID behavior. Final check: no issues in 136 source files. |
+| Strict Pyright | Touched auth/platform modules pass with no errors. Validated JSON boundary/generator annotations remove 16 baseline diagnostics: project total 941 -> 925. The remaining strict-typing backlog is unresolved; no exclusions, ignore rules, relaxed settings or baseline acceptance were added. |
+| Cost-estimation hang | Proven from the running test stack: the local pricing resolver selected a GitHub Copilot entry; LiteLLM inferred its provider and entered device-login polling from `completion_cost`. Both local-estimation calls now pass the resolved provider explicitly. Two regressions forbid provider discovery; the previously stalled fake-gateway case passes in 1.42 seconds with the pricing callback installed. No authentication setting was relaxed. The changing external pricing-map assertion now uses controlled fixture data. |
+| Intel macOS | Official cryptography 50.0.2 artifact metadata has no Intel macOS wheel. Existing Intel release job now prepares Rust/OpenSSL and static linking, then runs native crypto and packaged CLI smoke tests. YAML/order checks, pinned actionlint and both crypto tests pass locally on Windows. No Intel runner execution occurred: compatibility remains unverified. |
+| Docker | No Docker executable/service or usable Linux/WSL runtime is available. No image was built, started, scanned or published. CA startup, trust-store and two-container isolation checks remain unverified. |
+| Old shared-CA retirement | No deployed-image/container inventory, registry ownership scope or old CA fingerprint list is available in this public source checkout. No image, container, registry tag or trust entry was deleted. Retirement is NOT confirmed. |
+
+Intel build preparation follows the [cryptography source-build instructions](https://cryptography.io/en/latest/installation/#building-cryptography-on-macos);
+wheel availability was checked using [official release artifact metadata](https://pypi.org/pypi/cryptography/50.0.2/json).
+A prepared CI step is not evidence of an executed Intel build.
+
+To close the infrastructure gates, use an isolated Linux Docker host and an actual Intel Mac runner
+on this branch. Obtain the owned deployed-image/container inventory (immutable digests) and the
+old CA fingerprints, replace affected instances only after a validated new build, remove their trust
+entries wherever imported, and verify no affected instance/digest remains active. Source remediation
+cannot retire somebody else's distributed image or erase an already-disclosed private key.
+Do not delete unknown images or trust material, and do not deploy as part of this follow-up.
+
+Changed-file Ruff/format, pricing Bandit, actionlint, and `git diff --check` pass.
+The only whole pytest run was terminated after diagnosis; its partial output is not a passing result.
+The stopped audit test process is no longer running.
+
+Follow-up fix commits: `ba16da6b`, `109d4f59`, `8528356f`, `f2857cb1`, `a6e5dc9a`, `e890eaae`.
+
+Evidence remains private in `../strix-audit-evidence/launch-*.log`. The earlier audit/test records
+below are historical results, not claims that these outstanding gates are cleared.
+
 ## Reconnaissance and architecture (10 lines)
 
 1. Python 3.12+ CLI enters at `strix.interface.main:main`; Pydantic settings consume env/JSON configuration.

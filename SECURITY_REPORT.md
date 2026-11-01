@@ -9,6 +9,30 @@ failures already present upstream, Docker validation, and the compatibility chec
 remain release gates. No push, PR, deployment, paid scan, or live-target pentest was performed.
 Only this isolated checkout was changed; no LULU production service or data was accessed.
 
+## First remaining full-suite failure (2026-11-01)
+
+The original progress log's first `F` is test index 431. Collection-only mapping identified
+`tests/test_cloud_cli_runtime.py::test_source_prompt_shows_paths_and_literal_confirmation`;
+only that case was rerun to reproduce the failure. It raised Windows `OSError: [Errno 22]`
+while creating a filename containing ESC/BEL control bytes, before the application ran.
+
+The prompt fixture now creates ordinary temporary files and injects the same hostile display
+name into the prepared manifest. All original escaping/literal-confirmation assertions remain,
+and cancellation must remove the real temporary archive. No production implementation changed.
+The complete affected Cloud CLI runtime test file passes: **75 passed**. No full-suite rerun
+or repeat of dependency, vulnerability, frontend or secret scans was performed.
+
+Targeted strict Pyright on `cloud/source_scan.py`, `cloud/source_upload.py`, `cloud/render.py`
+and `terminal_text.py`: **zero errors**. These affected modules had no recorded errors before
+this fix either. The last project-wide backlog remains **925**, unresolved; unrelated files
+and type-checker settings were not edited. Changed-test Ruff/format and `git diff --check` pass.
+
+External blockers were taken from the existing report/configuration, without repeated probes:
+Docker/usable Linux runtime unavailable; Intel macOS hardware/runner validation unavailable;
+shared-CA retirement requires the owned deployed-image/container digests and old CA trust
+fingerprint inventory. No retirement, push, deployment or production/D1/R2 operation occurred.
+LULU and Sync v3 remain untouched. Other full-suite failures remain unverified.
+
 ## Launch-blocker follow-up (2026-10-31 to 2026-11-01)
 
 This follow-up changes only this isolated Strix checkout. It does not repeat the audit,

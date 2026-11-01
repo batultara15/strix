@@ -45,7 +45,24 @@ def _usage(input_tokens: int, output_tokens: int = 0, cached_tokens: int = 0) ->
     return usage
 
 
-def test_resolves_common_bare_model_names() -> None:
+def test_resolves_common_bare_model_names(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Resolver behavior must not depend on a remotely refreshed provider price map.
+    same_price = {"input_cost_per_token": 1.0, "output_cost_per_token": 2.0}
+    monkeypatch.setattr(
+        litellm,
+        "model_cost",
+        {
+            "deepseek/deepseek-v4-flash": same_price,
+            "xai/grok-4.5": same_price,
+            "perplexity/xai/grok-4.5": same_price,
+            "openrouter/x-ai/grok-4.5": same_price,
+            "minimax/MiniMax-M3": same_price,
+            "openrouter/minimax/MiniMax-M3": {
+                "input_cost_per_token": 3.0,
+                "output_cost_per_token": 4.0,
+            },
+        },
+    )
     resolve_litellm_model.cache_clear()
     assert resolve_litellm_model("deepseek-v4-flash") == "deepseek/deepseek-v4-flash"
     assert resolve_litellm_model("openai/deepseek-v4-flash") == "deepseek/deepseek-v4-flash"
@@ -60,6 +77,7 @@ def test_resolves_common_bare_model_names() -> None:
     # the resolver must not guess from its bare name. A provider-qualified
     # model remains deterministic.
     assert resolve_litellm_model("minimax/MiniMax-M3") == "minimax/MiniMax-M3"
+    resolve_litellm_model.cache_clear()
 
 
 def test_resolver_returns_none_for_unresolvable_model() -> None:

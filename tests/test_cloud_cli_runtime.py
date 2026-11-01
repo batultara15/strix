@@ -7,6 +7,7 @@ import io
 import json
 import sys
 import time
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -21,6 +22,8 @@ from strix.interface.main import main as interface_main
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from strix.interface.cloud.source_upload import SourceBundle
 
 
 class FakeResponse:
@@ -286,7 +289,22 @@ def test_source_prompt_shows_paths_and_literal_confirmation(
 ) -> None:
     (tmp_path / "app.py").write_text("print('ok')\n", encoding="utf-8")
     dangerous_name = "visible\x1b]52;c;copied\x07\x1b[2J.py"
-    (tmp_path / dangerous_name).write_text("print('safe')\n", encoding="utf-8")
+    (tmp_path / "visible.py").write_text("print('safe')\n", encoding="utf-8")
+    archive_paths: list[Path] = []
+
+    def prepare_prompt_bundle(*args: Any, **kwargs: Any) -> SourceBundle:
+        bundle = prepare_source(*args, **kwargs)
+        archive_paths.append(bundle.archive_path)
+        # Exercise untrusted manifest text even on filesystems that forbid control bytes.
+        files = tuple(
+            replace(item, archive_name=dangerous_name)
+            if item.archive_name == "visible.py"
+            else item
+            for item in bundle.manifest.files
+        )
+        return replace(bundle, manifest=replace(bundle.manifest, files=files))
+
+    monkeypatch.setattr(source_scan, "prepare_source", prepare_prompt_bundle)
     output = io.StringIO()
     console = Console(file=output, width=100)
     prompts: list[tuple[str, bool]] = []
@@ -316,6 +334,7 @@ def test_source_prompt_shows_paths_and_literal_confirmation(
     assert "\x07" not in rendered
     assert "visible\\x1b]52;c;copied\\x07\\x1b[2J.py" in rendered
     assert prompts == [("Upload this source and start the scan? [y/N]: ", False)]
+    assert archive_paths and all(not path.exists() for path in archive_paths)
 
 
 @pytest.mark.parametrize("failure", [KeyboardInterrupt(), EOFError()])

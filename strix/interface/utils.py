@@ -1727,9 +1727,17 @@ def validate_config_file(config_path: str) -> Path:
 # sources, so a large file makes session bring-up slower.
 
 
+def _partition_workspace_file_spec(spec: str) -> tuple[str, str, str]:
+    raw, sep, dest = spec.rpartition(":")
+    # A native drive prefix is part of PATH, not the optional PATH:DEST separator.
+    if sep and raw + ":" == Path(spec).drive:
+        return spec, "", ""
+    return raw, sep, dest
+
+
 def _workspace_file_dest(spec: str, source: Path) -> str:
     """Return the workspace-relative destination declared by ``spec``."""
-    _, sep, dest = spec.rpartition(":")
+    _, sep, dest = _partition_workspace_file_spec(spec)
     candidate = dest.strip() if sep and dest.strip() else source.name
     if candidate.startswith("/") or Path(candidate).is_absolute():
         if not candidate.startswith("/workspace/"):
@@ -1760,7 +1768,7 @@ def resolve_workspace_files(specs: list[str] | None) -> list[dict[str, str]]:
     resolved: list[dict[str, str]] = []
     seen: dict[str, str] = {}
     for spec in specs or []:
-        raw, sep, dest = spec.rpartition(":")
+        raw, sep, dest = _partition_workspace_file_spec(spec)
         source_text = raw if sep and dest.strip() else spec
         source = Path(source_text.strip()).expanduser()
         if not source.is_file():

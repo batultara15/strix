@@ -31,6 +31,7 @@ def _wire_runner(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
             extra_headers=None,
             extra_body=None,
         ),
+        telemetry=types.SimpleNamespace(run_record_timings=False),
         runtime=types.SimpleNamespace(max_context_images=3),
     )
     monkeypatch.setattr(runner, "load_settings", lambda: settings)

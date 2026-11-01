@@ -21,11 +21,16 @@ maps, completion-report interpolation, and dataclass/Pydantic serialization guar
 production call was established from them. Pre-existing age alone was not used as a safety proof.
 Unknown dynamic boundaries retain uncertainty and must be revisited if correlated with a failure.
 
-The newly reproduced launch-critical defect was elsewhere: Windows path/descriptor timestamp
+The reproduced launch-relevant runtime defects were not flagged by these diagnostics. Windows path/descriptor timestamp
 semantics falsely rejected unchanged source uploads. It was fixed by snapshotting descriptor
 metadata consistently, retaining archive ctime, inode, device, size, mtime and regular-file guards.
 The changed upload module passes targeted strict Pyright with zero errors and targeted Mypy.
 Unchanged archive, changed-digest, replaced-path and same-inode rewrite regressions pass.
+The final suite also exposed native drive colons incorrectly parsed as workspace destination
+separators. That parser is fixed; its module retains exactly 82 baseline diagnostics and introduces
+no new fingerprints. The workspace/subprocess-home affected tests pass 19 cases. The single full
+run had 2,540 passes and three failures, subsequently fixed only with targeted tests; no full rerun
+was performed, so a passing full result for the final code is still pending.
 
 The project-wide strict Pyright gate is still not green. This triage is not an acceptance of that
 backlog, a claim of complete runtime coverage, or permission to push/deploy. Private normalized

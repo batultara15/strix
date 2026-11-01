@@ -9,6 +9,44 @@ failures already present upstream, Docker validation, and the compatibility chec
 remain release gates. No push, PR, deployment, paid scan, or live-target pentest was performed.
 Only this isolated checkout was changed; no LULU production service or data was accessed.
 
+## Local launch follow-up — 2026-11-01
+
+The saved full-run failure indices were mapped by collection only, then failing groups were
+reproduced with bounded targeted commands. The real upload failure was a Windows `lstat`/`fstat`
+ctime mismatch: path metadata could report creation time while descriptor metadata reported
+change time. Selection now snapshots validated descriptor metadata, using the same API as archive
+validation. No archive integrity guard was removed. Four focused unchanged/mutation/digest tests
+pass; the affected upload suite passes 30 tests with two capability skips.
+
+Other reproduced failures were stale test fixtures: missing skill/telemetry settings, the previous
+Go minimum in a packaging assertion, hardcoded `/usr/bin/env`, a POSIX-only mount target, illegal
+Windows display-name fixtures, overlong pytest IDs, and POSIX mode-bit assertions. Private-file tests
+now verify actual 0600 creation requests on every platform, and actual mode bits on POSIX. Real
+symlink tests skip only on Windows error 1314; other errors still fail. This does not claim Windows
+ACL validation or replace required capable-runner checks.
+
+Existing targeted results: budget/packaging 5 passed; runner paths 12 passed; threat-model,
+argument and native-root fixtures 58 passed; portable contract cases 3 passed/2 capability skips;
+viewer/identity permission cases 2 passed. No passed dependency/security/frontend audit was repeated.
+See [PYRIGHT_LAUNCH_TRIAGE.md](PYRIGHT_LAUNCH_TRIAGE.md) for classification of all 925 saved errors:
+zero confirmed launch-critical type defects, 925 retained baseline diagnostics, zero vendor/test-only
+locations. The changed production upload module passes targeted Pyright and Mypy.
+
+A single final full-suite run was started only after no recorded local failure remained unresolved,
+with a private external pytest-timeout plugin (90 seconds per test). Result: **2,540 passed,
+15 skipped, 3 xfailed, 3 failed**, in 714.56 seconds. The three new failures were then fixed:
+two exposed a real Windows drive-colon bug in `PATH[:DEST]` parsing; the third was a child-process
+fixture that removed Windows home variables. Both source/destination parsing now share a native
+drive-aware split, retaining destination traversal/control-character validation. The child uses an
+isolated temporary home on both platforms. Their two affected modules pass **19 tests** after fixes.
+Targeted Mypy passes; the parser module retains exactly its 82 baseline Pyright fingerprints, with
+zero new diagnostics. No second full-suite run was performed: full-suite confirmation of the final
+code remains pending, despite all reproduced failures passing targeted checks.
+
+Docker/Intel/shared-CA blockers were recorded from existing evidence only; no retry, push,
+deployment, production/D1/R2 write, or LULU/Sync v3 change occurred. Strict Pyright's 925-error
+baseline is retained and unwaived. This work is not production-launch clearance.
+
 ## First remaining full-suite failure (2026-11-01)
 
 The original progress log's first `F` is test index 431. Collection-only mapping identified

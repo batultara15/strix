@@ -28,4 +28,4 @@ def test_wheel_build_requires_go(tmp_path: Path) -> None:
     )
 
     assert result.returncode != 0
-    assert "Go 1.24 or newer is required" in result.stdout + result.stderr
+    assert "Go 1.25 or newer is required" in result.stdout + result.stderr

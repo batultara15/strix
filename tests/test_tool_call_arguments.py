@@ -286,6 +286,7 @@ def test_repair_input_wraps_over_nested_function_call_arguments() -> None:
 @pytest.mark.parametrize(
     "arguments",
     ['{"cmd": "ls -la', "[1, 2]", "null", "not json", '{"n": NaN}', OVER_NESTED],
+    ids=["truncated", "array", "null", "invalid-json", "non-finite", "over-nested"],
 )
 def test_describe_malformed_arguments_tells_the_model_to_reissue(arguments: str) -> None:
     message = describe_malformed_arguments("exec_command", arguments)

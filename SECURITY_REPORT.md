@@ -6,9 +6,59 @@ Upstream baseline: `6b7ae2ebe4d47037a927aade23265ff4e4f27e84`. Local branch: `se
 **Release decision: code hardening completed, but NOT an unconditional launch clearance.**
 Confirmed application-code findings below are fixed; local dependency re-audits and the latest
 full-suite confirmation pass. The hardened Docker image has zero CRITICAL and zero actionable HIGH findings; two
-source-only HIGH matches remain visible and are documented below. Type-check debt and Intel
-compatibility/shared-CA retirement requirements remain. No push, PR, deployment, paid scan, or live-target pentest was performed.
+source-only HIGH matches remain visible and are documented below. Type-check backlog is retained; Intel validation now passes. Shared-CA retirement and live
+LULU production evidence remain outstanding, as detailed in the latest decision below. No push, PR, deployment, paid scan, or live-target pentest was performed.
 Only this isolated checkout was changed; no LULU production service or data was accessed.
+
+## Final production-security decision — 2026-11-01
+
+**Strix security validation: PASS within the documented scope. LULU production deployment: HOLD.**
+The review branch is successfully pushed to `batultara15/strix:security-hardening`; the old
+upstream HTTP 403 is historical, not a remaining fork-push blocker. Implementation commit
+`6d7e640d` and all 27 documented remediation commits remain ancestors. The final changes
+since the passing application baseline are the reviewed Docker/test/report files and the
+Intel-only CI workflow. Tested Docker source hashes are unchanged: no repeat image scan or
+completed local audit was needed. No unrelated application change, new secret, suppression,
+or security bypass was introduced by this final delta.
+
+**Intel Mac: PASS — EXTERNAL_BLOCKER_INTEL_MAC cleared.** Real GitHub `macos-15-intel`
+runner, macOS 15.7.9, validated commit `888939c213da63ac67152363a4ad33968438d19f`.
+[Run 41326394694](https://github.com/batultara15/strix/actions/runs/41326394694),
+job `124907121849`: source crypto preparation and frozen build succeeded; wheel
+`strix_agent-1.7.0-py3-none-macosx_11_0_x86_64.whl` built; PyInstaller succeeded;
+**2 crypto tests passed**; `file` reported **Mach-O 64-bit executable x86_64**;
+`lipo` architecture guard and binary version/help startup passed. The final success marker
+and completed-success job status were verified. The fork-only workflow has read-only
+permissions and no release/deployment job; it did not run the full suite or other platforms.
+
+**EXTERNAL_BLOCKER_SHARED_CA remains:** no owner-authorized deployed-image/registry/trust
+inventory, old image digests or old trusted CA fingerprint list was supplied. The two replacement
+containers already proved distinct CAs and successful rotation, but that does not prove old
+fleet retirement. Still required: old/replacement immutable digest mapping, no old deployed
+or running containers, no old CA trusted in the inventoried scope, and timestamped registry
+quarantine/deletion/retirement records. No retirement action was performed.
+
+**PRODUCTION_SECURITY_BLOCKER: missing live LULU security and pre-flight evidence.** This
+repository is Strix (Python/Go CLI plus Docker), not the LULU Cloudflare Worker. It contains
+no `src/worker.js`, `src/security.js`, `src/legacy-worker.js` or Wrangler deployment config.
+Strix viewer/client auth, origin/cookie protections, input/upload boundaries and secret handling
+were previously reviewed; they do not certify LULU admin sessions, sensitive API authorization,
+CSRF/origin/rate controls, cookies/headers, upload/body validation, D1/R2 boundaries, Sync v3,
+restricted recovery or debug/test-route exposure. Those live Worker controls cannot be
+verified from the authorized Strix-only checkout. No production vulnerability is newly alleged;
+this is an evidence/scope blocker, not a fabricated PASS.
+
+A current verified production D1 backup, Worker version, D1/R2 binding inventory, business-data
+counts, reviewed migration status and rollback point have not been supplied or freshly verified
+in this scope. They are required before any LULU deployment. No old invoice count is presented
+as fresh evidence. Intel packaging and Strix shared-CA retirement are external Strix-side
+compatibility/compliance matters; no evidence makes them LULU Worker runtime dependencies.
+Their classification does not waive the separate live Worker security/pre-flight evidence gate.
+
+No main LULU files, production credentials, D1/R2, invoice queues or production services were
+changed. No merge or deployment occurred. No production backup was claimed or business data
+read/deleted. Application/Docker code is unchanged during final validation; only the narrowly
+scoped Intel workflow and this status record were added. **No production deployment approval.**
 
 ## Final status — COMPLETE LOCALLY — 2026-11-01
 

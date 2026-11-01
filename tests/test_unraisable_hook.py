@@ -122,11 +122,16 @@ print("done")
 """
 
 
-def test_process_exit_prints_nothing_to_stderr() -> None:
+def test_process_exit_prints_nothing_to_stderr(tmp_path: Path) -> None:
     env = {
         k: v for k, v in os.environ.items() if k in {"PATH", "HOME", "SYSTEMROOT", "TEMP", "TMP"}
     }
-    env |= {"PYTHONPATH": str(Path(__file__).resolve().parents[1]), "STRIX_DEBUG": ""}
+    env |= {
+        "PYTHONPATH": str(Path(__file__).resolve().parents[1]),
+        "STRIX_DEBUG": "",
+        "HOME": str(tmp_path),
+        "USERPROFILE": str(tmp_path),
+    }
     proc = subprocess.run(  # noqa: S603
         [sys.executable, "-c", _EXIT_SCRIPT],
         capture_output=True,
